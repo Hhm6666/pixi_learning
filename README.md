@@ -1,5 +1,5 @@
 ### pixi实现飞船射击外星人小游戏
-根据官方文芳简单了解了pixi知识，然后写了这个小demo<br>
+根据官方文档简单了解了pixi知识，然后写了这个小demo<br>
 1、界面组成
 - GameScene画布 ：<br>
   - ship精灵<br>
