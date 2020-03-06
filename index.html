@@ -98,13 +98,10 @@
 
             let numberOfAliens = 6,
             spacing = 80,
-            //yOffset = 150,
             speed = 2,
             direction = 1;
 
-  //An array to store all the blob monsters
             aliens = [];
-              //Make as many blobs as there are `numberOfBlobs`
             for (let i = 0; i < numberOfAliens; i++) {
                 let alien = new PIXI.Sprite(
                 PIXI.loader.resources["alien.png"].texture
