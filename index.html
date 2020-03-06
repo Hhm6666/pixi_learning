@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Pixi js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.2.1/pixi.min.js"></script>
+</head>
+<body>
+    <script>
+        //检查是否支持WebGL，如果不支持就变为canvas
+        let type = "WebGL"
+        if(!PIXI.utils.isWebGLSupported()){
+            type = "canvas"
+        }
+        PIXI.utils.sayHello(type)
+
+        let app = new PIXI.Application({
+            width:512,
+            height:512,
+            backgroundColor:0xDDA0DD,
+            antialiasing:true,
+            transparent:false,
+            resolution:1
+            });
+        document.body.appendChild(app.view);
+
+        //载入图片
+        PIXI.loader
+        .add(["alien.png","ship.png"])
+        .on("progress",loadProgressHandler)
+        .load(loadOver);
+
+        //定义全局变量
+        let ship,aliens,bullet,scoreBar,healthBar,gameScene,gameOverScene,
+            msg1,msg2,msgover;
+
+        function loadProgressHandler(loader,resource){
+            console.log("loading: "+resource.url);
+            console.log("progress: "+loader.progress +"%");
+        }
+        function loadOver(){
+            gameScene = new PIXI.Container();
+            app.stage.addChild(gameScene);
+            ship = new PIXI.Sprite(
+                PIXI.loader.resources["ship.png"].texture
+            );
+            ship.x = 250;
+            ship.y = 470;
+            ship.vx = 0;
+            ship.vy = 0;
+            gameScene.addChild(ship);
+
+            drawBullet(ship.x,ship.y);
+
+            //关于ship和bullet的移动
+            let left = keyboard(37),
+                right = keyboard(39),
+                up =keyboard(32);
+
+            //如果按下左箭头按键
+            left.press = () =>{
+                ship.vx = -5;
+                ship.vy = 0;
+            };
+            //松开按键时
+            left.release = () => {
+                if (!right.isDown && ship.vy===0){
+                    ship.vx = 0;
+                }
+            };
+
+            right.press = () =>{
+                ship.vx = 5;
+                ship.vy = 0;
+            };
+            right.release = () =>{
+                if (!left.isDown && ship.vy===0){
+                    ship.vx = 0;
+                }
+            };
+
+            //按上键时子弹移动
+            up.press = function(){
+                bullet.vy = -5;
+                bullet.vx = 0;
+            };
+            up.release = function(){
+                if(bullet===0){
+                    bullet.vy = 0;
+                }
+            };
+
+            state = play;
+            // 用ticker来控制移动
+            app.ticker.add(delta => gameLoop(delta));
+
+
+            let numberOfAliens = 6,
+            spacing = 80,
+            //yOffset = 150,
+            speed = 2,
+            direction = 1;
+
+  //An array to store all the blob monsters
+            aliens = [];
+              //Make as many blobs as there are `numberOfBlobs`
+            for (let i = 0; i < numberOfAliens; i++) {
+                let alien = new PIXI.Sprite(
+                PIXI.loader.resources["alien.png"].texture
+            );
+                let x = spacing * i + 5;
+                let y = randomInt(0, app.stage.height - alien.height);
+                alien.x = x;
+                alien.y = y;
+                alien.vy = speed * direction;
+                direction *= -1;
+                aliens.push(alien);
+
+                gameScene.addChild(alien);
+            }
+
+            //分数条
+            scoreBar = new PIXI.Container();
+            scoreBar.position.set(app.stage.width - 360,10)
+            gameScene.addChild(scoreBar);
+
+            let innerBar = new PIXI.Graphics();
+            innerBar.beginFill(0x00FF7F);
+            innerBar.drawRect(0,0,128,8);
+            innerBar.endFill();
+            scoreBar.addChild(innerBar);
+
+            let outerBar = new PIXI.Graphics();
+            outerBar.beginFill(0x000000);
+            outerBar.drawRect(0,0,128,8);
+            outerBar.endFill();
+            scoreBar.addChild(outerBar);
+
+            scoreBar.outer = outerBar;
+
+            //生命条
+            healthBar = new PIXI.Container();
+            healthBar.position.set(app.stage.width - 100,10)
+            gameScene.addChild(healthBar);
+
+            let healthInBar = new PIXI.Graphics();
+            healthInBar.beginFill(0x000000);
+            healthInBar.drawRect(0,0,128,8);
+            healthInBar.endFill();
+            healthBar.addChild(healthInBar);
+
+            let healthOutBar = new PIXI.Graphics();
+            healthOutBar.beginFill(0xFFA500);
+            healthOutBar.drawRect(0,0,128,8);
+            healthOutBar.endFill();
+            healthBar.addChild(healthOutBar);
+
+            healthBar.outer = healthOutBar;
+
+            gameOverScene = new PIXI.Container();
+            app.stage.addChild(gameOverScene);
+            gameOverScene.visible = false;
+
+            //显示文字
+            let style = new PIXI.TextStyle({
+                fontFamily:"Futura",
+                fontSize:16,
+                fill:"white"
+            });
+            msg1 = new PIXI.Text("分数条：",style);
+            msg2 = new PIXI.Text("生命条：",style);
+            msg1.position.set(app.stage.width - 450,5);
+            msg2.position.set(app.stage.width - 200,5);
+            gameScene.addChild(msg1);
+            gameScene.addChild(msg2);
+            let style2 = new PIXI.TextStyle({
+                fontFamily:"Futura",
+                fontSize:64,
+                fill:"white"
+            });
+            msgover = new PIXI.Text("The End!",style2);
+            msgover.x = 100
+            msgover.y = app.stage.height/2 - 32;
+            gameOverScene.addChild(msgover);
+
+        }
+
+        function drawBullet(x,y){
+            bullet = new PIXI.Graphics();
+            bullet.beginFill(0x000000);
+            bullet.drawCircle(0,0,5);
+            bullet.endFill();
+            bullet.x = x+15;
+            bullet.y = y;
+            bullet.vy = 0;
+            bullet.vx = 0;
+            gameScene.addChild(bullet);
+
+        }
+
+        function randomInt(min,max){
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+    //飞船移动
+    //gameLoop函数每秒60次调用了state函数，state被复制为play
+    //所以play函数每秒会运行60次
+        function gameLoop(delta){
+            state(delta);
+        }
+        function play(delta){
+            ship.x += ship.vx;
+            ship.y += ship.vy;
+            bullet.y += bullet.vy;
+            bullet.x += bullet.vx
+            //飞船限制在contain中移动
+            contain(ship,{x:10,y:10,width:500,height:510});
+            let shipHit = false; //飞船和外星人之间的碰撞变量
+            let bulletHit = false; //子弹和外星人之间的碰撞变量
+            let bulletHitsWall = contain(bullet,{x:10,y:10,width:500,height:510});
+            if (bulletHitsWall === "top"){
+                gameScene.removeChild(bullet)
+                drawBullet(ship.x,ship.y)
+            }
+            //飞船的移动
+            aliens.forEach(function(alien){
+                alien.y += alien.vy;
+                //检查外星人的碰撞事件
+                let alienHitsWall = contain(alien,{x:10,y:10,width:500,height:510});
+                if (alienHitsWall === "top" || alienHitsWall === "bottom"){
+                    alien.vy *= -1;
+                }
+                if(hitTestRectangle(ship,alien)){
+                    shipHit = true;
+                }
+                if(hitTestRectangle(bullet,alien)){  //子弹和外星人碰撞
+                    bulletHit = true;
+                    alien.vy *= -1;
+                }
+                
+            });
+            if(shipHit){
+                healthBar.outer.width -= 3;
+                    //如果外星人和飞船之间发生了碰撞，则生命条减少5像素
+            }
+            if(bulletHit){
+                scoreBar.outer.width -=20;
+                gameScene.removeChild(bullet)
+                drawBullet(ship.x,ship.y)
+            }
+            if (healthBar.outer.width < 0){
+                state = end;
+                msgover.text = "You Lost!";
+            }
+            if (scoreBar.outer.width < 0){
+                state = end;
+                msgover.text = "You Won!";
+            }
+        }
+
+        function end(){
+            gameScene.visible = false;
+            gameOverScene.visible = true;
+        }
+
+        function keyboard(keyCode) {
+            var key = {};
+            key.code = keyCode;
+            key.isDown = false;
+            key.isUp = true;
+            key.press = undefined;
+            key.release = undefined;
+//The `downHandler`
+            key.downHandler = event => {
+                if (event.keyCode === key.code) {
+                    if (key.isUp && key.press) key.press();
+                    key.isDown = true;
+                    key.isUp = false;
+                }
+                event.preventDefault();
+            };
+
+  //The `upHandler`
+            key.upHandler = event => {
+                if (event.keyCode === key.code) {
+                    if (key.isDown && key.release) key.release();
+                        key.isDown = false;
+                        key.isUp = true;
+                }
+                event.preventDefault();
+            };
+
+  //Attach event listeners
+            window.addEventListener(
+                "keydown", key.downHandler.bind(key), false
+            );
+            window.addEventListener(
+                "keyup", key.upHandler.bind(key), false
+            );
+            return key;
+        }
+
+        function contain(sprite,container){
+            let collision = undefined;
+            if (sprite.x < container.x){
+                sprite.x = container.x;
+                collision = "left";
+            }
+            if (sprite.y < container.y){
+                sprite.y = container.y;
+                collision = "top";
+            }
+            if (sprite.x + sprite.width > container.width){
+                sprite.x = container.width - sprite.width;
+                collision = "right";
+            }
+            if (sprite.y + sprite.height > container.height){
+                sprite.y = container.height - sprite.height;
+                collision = "bottom";
+            }
+            return collision;
+
+        }
+
+        function hitTestRectangle(r1, r2) {
+            let hit, combinedHalfWidths, combinedHalfHeights, vx, vy;
+
+            //hit will determine whether there's a collision
+            hit = false;
+
+            //Find the center points of each sprite
+            r1.centerX = r1.x + r1.width / 2; 
+            r1.centerY = r1.y + r1.height / 2; 
+            r2.centerX = r2.x + r2.width / 2; 
+            r2.centerY = r2.y + r2.height / 2; 
+
+            //Find the half-widths and half-heights of each sprite
+            r1.halfWidth = r1.width / 2;
+            r1.halfHeight = r1.height / 2;
+            r2.halfWidth = r2.width / 2;
+            r2.halfHeight = r2.height / 2;
+
+            //Calculate the distance vector between the sprites
+            vx = r1.centerX - r2.centerX;
+            vy = r1.centerY - r2.centerY;
+
+            //Figure out the combined half-widths and half-heights
+            combinedHalfWidths = r1.halfWidth + r2.halfWidth;
+            combinedHalfHeights = r1.halfHeight + r2.halfHeight;
+
+            //Check for a collision on the x axis
+            if (Math.abs(vx) < combinedHalfWidths) {
+            //A collision might be occuring. Check for a collision on the y axis
+                if (Math.abs(vy) < combinedHalfHeights) {
+                    //There's definitely a collision happening
+                    hit = true;
+                } else {
+                    //There's no collision on the y axis
+                    hit = false;
+                }
+            } else {
+                //There's no collision on the x axis
+                hit = false;
+            }
+            //`hit` will be either `true` or `false`
+            return hit;
+        };
+
+    </script>
+</body>
+</html>
